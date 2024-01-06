@@ -5,4 +5,3 @@ create table DELIVERY_ORDER
     ORDER_ID       VARCHAR2(2000) not null
         references ORDERS
 )
-/

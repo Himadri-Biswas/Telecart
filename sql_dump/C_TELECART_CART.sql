@@ -4,6 +4,5 @@ create table CART
         references USERS,
     PRODUCT_ID VARCHAR2(1000) not null
         references PRODUCTS,
-    ITEM_COUNT       NUMBER         not null
+    ITEM_COUNT  NUMBER  not null
 )
-/

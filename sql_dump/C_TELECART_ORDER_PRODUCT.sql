@@ -6,4 +6,3 @@ create table ORDER_PRODUCT
         references PRODUCTS,
     ITEM_COUNT       NUMBER
 )
-/
