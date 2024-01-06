@@ -2,9 +2,7 @@ const oracledb = require('oracledb')
 
 const cns = {
     user: "c##telecart",
-    //user: "SYSTEM",
     password: "telecart",
-    //password: "abcd77",
     connectString: "localhost/orcl"
 }
 
