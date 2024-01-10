@@ -100,15 +100,30 @@ app.post('/login', async (req, res) => {
     }
 })
 
-app.get('/users', async (req, res) => {
-    try {
-        const sql = `SELECT * FROM USERS`;
-        const result = await queryDB(sql, [], false);
-        console.log(result.rows);
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching users:', error.message);
-        res.status(500).json({ error: 'Internal Server Error' });
+//seller route
+app.get('/seller', (req, res) => {
+    res.sendFile(path.join(staticPath, 'seller.html'))
+})
+
+app.post('/seller', async (req, res) => {
+    let { name, about, address, number, tac, legit, email } = req.body;
+    if (!name.length || !address.length || !about.length || number.length < 10 || !Number(number)) {
+        return res.json({ 'alert': 'some information is invalid' })
+    } else if (!tac) {
+        return res.json({ 'alert': 'You have to agree to our terms and conditions' })
+    } else if (!legit) {
+        return res.json({ 'alert': 'You have to put legit information' })
+    } else {
+        //update users seller status here
+
+        let sqlToUpdateUser = `update USERS
+        SET IS_SELLER = :1
+        where EMAIL = :2`
+        await queryDB(sqlToUpdateUser, ['true', email], true)
+
+        let sqlToInsertSellerIntoDB = `INSERT INTO SELLERS (BUSINESS_NAME, ABOUT, ADDRESS, PHONE_NUMBER, EMAIL) VALUES (:1, :2, :3, :4, :5)`
+        await queryDB(sqlToInsertSellerIntoDB, [name, about, address, number, email], true)
+        return res.json(true)
     }
 })
 
