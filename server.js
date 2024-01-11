@@ -127,6 +127,101 @@ app.post('/seller', async (req, res) => {
     }
 })
 
+//add product
+app.get('/add-product', (req, res) => {
+    res.sendFile(path.join(staticPath, 'addProduct.html'))
+})
+
+app.get('/add-product/:id', (req, res) => {
+    res.sendFile(path.join(staticPath, 'addProduct.html'))
+})
+
+
+
+//upload link
+app.post('/upload', (req, res) => {
+    let file = req.files.image;
+    let date = new Date();
+    //image name
+    let imageName = date.getDate() + date.getTime() + file.name;
+    //image upload path
+    let path = 'public/uploads/' + imageName;
+
+    //create upload
+    file.mv(path, (err, result) => {
+        if (err) {
+            throw err;
+        } else {
+            res.json(`uploads/${imageName}`)
+        }
+    })
+})
+
+
+app.post('/add-product', async (req, res) => {
+    let { name, shortDes, des, images, actualPrice, discount, stock, tags, tac, email, startDate, discountStayDays, productId } = req.body;
+
+    // Validation
+    if (!name.length || shortDes.length > 100 || shortDes.length < 10 || !des.length || !images.length ||
+        !actualPrice.length || !discount.length || stock < 20 || !tags.length || !tac || !startDate || !discountStayDays) {
+        return res.json({ 'alert': 'Invalid input data. Please check the form fields.' });
+    }
+
+    tags = tags.toLowerCase();
+    const end_date = calculateEndDate(startDate, discountStayDays);
+
+    if (!productId) {
+        productId = `${name.toLowerCase()}-${Math.floor(Math.random() * 5000)}`;
+
+        // Insert into PRODUCTS table
+        let sqlToInsertProduct = `INSERT INTO PRODUCTS (PRODUCT_ID, PRODUCT_NAME, PRODUCT_DETAILS, PRICE, STOCK, TAGS, EMAIL, SHORT_DES) VALUES (:1, :2, :3, :4, :5, :6, :7, :8)`;
+        await queryDB(sqlToInsertProduct, [productId, name, des, actualPrice, stock, tags, email, shortDes], true);
+
+        // Insert into DISCOUNT table
+        let discountId = `${productId}-discount-${Math.floor(Math.random() * 5000)}`;
+        let sqlToInsertDiscount = `INSERT INTO DISCOUNT (DISCOUNT_ID, PRODUCT_ID, START_DATE, END_DATE, DISCOUNT_PERCENT, EMAIL) VALUES (:1, :2, TO_DATE(:3, 'YYYY-MM-DD'), TO_DATE(:4, 'YYYY-MM-DD'), :5, :6)`;
+        await queryDB(sqlToInsertDiscount, [discountId, productId, startDate, end_date, discount, email], true);
+
+        // Insert images into IMAGES table
+        for (const image of images) {
+            let imageId = `${image}-${Math.floor(Math.random() * 5000)}`;
+            let sqlToIsertImage = `INSERT INTO IMAGES (IMAGE_ID, IMAGE_URL, PRODUCT_ID) VALUES (:1, :2, :3)`;
+            await queryDB(sqlToIsertImage, [imageId, image, productId], true);
+        }
+
+        return res.json({ 'product': name });
+    } else {
+        // Update PRODUCTS table
+        let sqlToUpdateProduct = `UPDATE PRODUCTS SET PRODUCT_NAME=:1, PRODUCT_DETAILS=:2, PRICE=:3, STOCK=:4, TAGS=:5, SHORT_DES=:6 WHERE PRODUCT_ID=:7`;
+        await queryDB(sqlToUpdateProduct, [name, des, actualPrice, stock, tags, shortDes, productId], true);
+
+        // Update DISCOUNT table
+        let sqlToUpdateDiscount = `UPDATE DISCOUNT SET START_DATE=TO_DATE(:1, 'YYYY-MM-DD'), END_DATE=TO_DATE(:2, 'YYYY-MM-DD'), DISCOUNT_PERCENT=:3 WHERE PRODUCT_ID=:4`;
+        await queryDB(sqlToUpdateDiscount, [startDate, end_date, discount, productId], true);
+
+        // Delete existing images from IMAGES table
+        let sqlToDeleteImagesFirst = `DELETE FROM IMAGES WHERE PRODUCT_ID = :1`;
+        await queryDB(sqlToDeleteImagesFirst, [productId], true);
+
+        // Insert new images into IMAGES table
+        for (const image of images) {
+            let imageId = `${image}-${Math.floor(Math.random() * 5000)}`;
+            let sqlToIsertImage = `INSERT INTO IMAGES (IMAGE_ID, IMAGE_URL, PRODUCT_ID) VALUES (:1, :2, :3)`;
+            await queryDB(sqlToIsertImage, [imageId, image, productId], true);
+        }
+
+        return res.json({ 'product': name });
+    }
+});
+
+// Function to calculate the end date of the discount
+function calculateEndDate(startDate, discountStayDays) {
+    const start_date = new Date(startDate);
+    const end_date = new Date(start_date);
+    end_date.setDate(start_date.getDate() + parseInt(discountStayDays));
+    return end_date.toISOString().split('T')[0];
+}
+
 app.listen(9000, () => {
     console.log('listening on port 9000');
 })
