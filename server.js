@@ -409,6 +409,219 @@ app.get('/search/:key', (req, res) => {
     res.sendFile(path.join(staticPath, 'search.html'))
 })
 
+app.get('/cart', (req, res) => {
+    res.sendFile(path.join(staticPath, 'cart.html'))
+})
+
+app.post('/addtocartorwishlist', async (req, res) => {
+    let { productId, type, email } = req.body;
+    let date = new Date();
+    /*
+    let actualDate = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`
+    let dateFormat = 'yyyy/mm/dd hh24:mi:ss'
+    */
+    let pad = (n) => (n < 10) ? '0' + n : n;
+
+    let actualDate = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    let dateFormat = 'yyyy/mm/dd hh24:mi:ss';
+    
+    if (type === 'cart') {
+
+        //stock checking
+        let sqlToCheckStock = `SELECT STOCK FROM PRODUCTS WHERE PRODUCT_ID=:1`
+        let resultForStock = await queryDB(sqlToCheckStock, [productId], false)
+        if (resultForStock.rows[0][0] == 0) {
+            return res.json({ 'warning': 'Sorry! This product is out of stock!' })
+        } else {
+            let sqlToCheckCart = `SELECT * FROM CART WHERE PRODUCT_ID=:1 AND EMAIL=:2`
+            let result = await queryDB(sqlToCheckCart, [productId, email], false);
+            if (result.rows.length === 0) {
+                let sqlToInsertToCart = `INSERT INTO CART VALUES(:1, :2, :3)`
+                await queryDB(sqlToInsertToCart, [email, productId, 1], true);
+
+                //notification
+                let sqlToGetProductName = `SELECT product_name FROM products WHERE product_id=:1`
+                let resultForProductName = await queryDB(sqlToGetProductName, [productId], false);
+                let notification_text = `${resultForProductName.rows[0][0]} has been added to your cart!`
+                let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2, TO_DATE(:3, :4))`
+                await queryDB(sqlToInsertIntoNotification, [notification_text, email, actualDate, dateFormat], true);
+
+                return res.json('Added!')
+            } else if (result.rows[0][2] === 0) {
+                let sqlToModifyCart = `UPDATE CART SET ITEM_COUNT=1 WHERE PRODUCT_ID=:1 AND EMAIL=:2`
+                await queryDB(sqlToModifyCart, [productId, email], true);
+                //notification
+                let sqlToGetProductName = `SELECT product_name FROM products WHERE product_id=:1`
+                let resultForProductName = await queryDB(sqlToGetProductName, [productId], false);
+                let notification_text = `${resultForProductName.rows[0][0]} has been added to your cart!`
+                let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2, TO_DATE(:3, :4))`
+                await queryDB(sqlToInsertIntoNotification, [notification_text, email, actualDate, dateFormat], true);
+
+                return res.json('Added!')
+            }
+            else {
+                return res.json('Already added!')
+            }
+        }
+    } else if (type === 'wishlist') {
+        let sqlToCheckWishlist = `SELECT * FROM WISHLIST WHERE PRODUCT_ID=:1 AND EMAIL=:2`
+        let result = await queryDB(sqlToCheckWishlist, [productId, email], false);
+        if (result.rows.length === 0) {
+            let sqlToInsertToWishlist = `INSERT INTO WISHLIST VALUES(:1, :2, :3)`
+            await queryDB(sqlToInsertToWishlist, [email, productId, 1], true);
+
+            //notification
+            let sqlToGetProductName = `SELECT product_name FROM products WHERE product_id=:1`
+            let resultForProductName = await queryDB(sqlToGetProductName, [productId], false);
+            let notification_text = `${resultForProductName.rows[0][0]} has been added to your wishlist!`
+            let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2, TO_DATE(:3, :4))`
+            await queryDB(sqlToInsertIntoNotification, [notification_text, email, actualDate, dateFormat], true);
+
+            return res.json('Added!')
+        } else if (result.rows[0][2] === 0) {
+            let sqlToModifyWishlist = `UPDATE WISHLIST SET ITEM_COUNT=1 WHERE PRODUCT_ID=:1 AND EMAIL=:2`
+            await queryDB(sqlToModifyWishlist, [productId, email], true);
+
+            //notification
+            let sqlToGetProductName = `SELECT product_name FROM products WHERE product_id=:1`
+            let resultForProductName = await queryDB(sqlToGetProductName, [productId], false);
+            let notification_text = `${resultForProductName.rows[0][0]} has been added to your wishlist!`
+            let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2, TO_DATE(:3, :4))`
+            await queryDB(sqlToInsertIntoNotification, [notification_text, email, actualDate, dateFormat], true);
+
+            return res.json('Added!')
+        }
+        else {
+            return res.json('Already added!')
+        }
+    }
+})
+
+app.post('/getCartOrWishlistProducts', async (req, res) => {
+    let { email, type } = req.body;
+    if (type === 'cart') {
+        let sql = `
+            SELECT C.EMAIL, C.PRODUCT_ID, C.ITEM_COUNT, 
+                P.PRODUCT_NAME, P.PRODUCT_DETAILS, P.PRICE, 
+                D.DISCOUNT_PERCENT, P.PRICE * (1 - D.DISCOUNT_PERCENT / 100) AS SELLPRICE,
+                P.STOCK, P.TAGS, P.EMAIL, P.SHORT_DES
+            FROM CART C
+            JOIN PRODUCTS P ON C.PRODUCT_ID = P.PRODUCT_ID
+            LEFT OUTER JOIN DISCOUNT D ON P.PRODUCT_ID = D.PRODUCT_ID
+            WHERE C.EMAIL = :1`;
+            
+        let result = await queryDB(sql, [email], false);
+        //console.log(result.rows);
+        let products = [];
+        for (let i = 0; i < result.rows.length; i++) {
+            let product = {
+                email: result.rows[i][0],
+                productId: result.rows[i][1],
+                item: result.rows[i][2],
+                name: result.rows[i][3],
+                productDetails: result.rows[i][4],
+                actualPrice: result.rows[i][5],
+                discount: result.rows[i][6],
+                sellPrice: result.rows[i][7],
+                stock: result.rows[i][8],
+                tags: result.rows[i][9],
+                email: result.rows[i][10],
+                shortDes: result.rows[i][11]
+            }
+            let sqlToGetImage = `SELECT * FROM IMAGES WHERE PRODUCT_ID = :1`
+            let resultForImages = await queryDB(sqlToGetImage, [product.productId], false);
+            let images = [];
+            for (let i = 0; i < resultForImages.rows.length; i++) {
+                images.push(resultForImages.rows[i][1])
+            }
+            product.image = images[0];
+            products.push(product);
+        }
+        return res.json(products);
+    } else if (type === 'wishlist') {
+        let sql = `
+            SELECT W.EMAIL, W.PRODUCT_ID, W.ITEM_COUNT, 
+                P.PRODUCT_NAME, P.PRODUCT_DETAILS, P.PRICE, 
+                D.DISCOUNT_PERCENT, P.PRICE * (1 - D.DISCOUNT_PERCENT / 100) AS SELLPRICE,
+                P.STOCK, P.TAGS, P.EMAIL, P.SHORT_DES
+            FROM WISHLIST W
+            JOIN PRODUCTS P ON W.PRODUCT_ID = P.PRODUCT_ID
+            LEFT OUTER JOIN DISCOUNT D ON P.PRODUCT_ID = D.PRODUCT_ID
+            WHERE W.EMAIL = :1`;
+            
+        let result = await queryDB(sql, [email], false);
+        let products = [];
+        for (let i = 0; i < result.rows.length; i++) {
+            let product = {
+                email: result.rows[i][0],
+                productId: result.rows[i][1],
+                item: result.rows[i][2],
+                name: result.rows[i][3],
+                productDetails: result.rows[i][4],
+                actualPrice: result.rows[i][5],
+                discount: result.rows[i][6],
+                sellPrice: result.rows[i][7],
+                stock: result.rows[i][8],
+                tags: result.rows[i][9],
+                email: result.rows[i][10],
+                shortDes: result.rows[i][11]
+            }
+            let sqlToGetImage = `SELECT * FROM IMAGES WHERE PRODUCT_ID = :1`
+            let resultForImages = await queryDB(sqlToGetImage, [product.productId], false);
+            let images = [];
+            for (let i = 0; i < resultForImages.rows.length; i++) {
+                images.push(resultForImages.rows[i][1])
+            }
+            product.image = images[0];
+            products.push(product);
+        }
+        return res.json(products);
+    }
+})
+
+app.put('/updateCartOrWishlist', async (req, res) => {
+    let { type, email, productId, item } = req.body;
+    console.log(req.body);
+    if (type === 'cart') {
+        let sql = `UPDATE CART SET ITEM_COUNT=:1 WHERE EMAIL=:2 AND PRODUCT_ID=:3`
+        await queryDB(sql, [item, email, productId], true);
+        return res.json(`updated ${productId}`)
+    } else {
+        let sql = `UPDATE WISHLIST SET ITEM_COUNT=:1 WHERE EMAIL=:2 AND PRODUCT_ID=:3`
+        await queryDB(sql, [item, email, productId], true);
+        return res.json(`updated ${productId}`)
+    }
+})
+
+app.delete('/deleteFromCartOrWishlist', async (req, res) => {
+    let { type, email, productId } = req.body;
+    if (type === 'cart') {
+        let sql = `DELETE FROM CART WHERE EMAIL=:1 AND PRODUCT_ID=:2`
+        await queryDB(sql, [email, productId], true);
+
+        //notification
+        let sqlToGetProductName = `SELECT product_name FROM products WHERE product_id=:1`
+        let resultForProductName = await queryDB(sqlToGetProductName, [productId], false);
+        let notification_text = `${resultForProductName.rows[0][0]} has been removed from your cart!`
+        let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2)`
+        await queryDB(sqlToInsertIntoNotification, [notification_text, email], true)
+
+        return res.json('deleted');
+    } else {
+        let sql = `DELETE FROM WISHLIST WHERE EMAIL=:1 AND PRODUCT_ID=:2`
+        await queryDB(sql, [email, productId], true);
+
+        //notification
+        let sqlToGetProductName = `SELECT product_name FROM products WHERE product_id=:1`
+        let resultForProductName = await queryDB(sqlToGetProductName, [productId], false);
+        let notification_text = `${resultForProductName.rows[0][0]} has been removed from your wishlist!`
+        let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2)`
+        await queryDB(sqlToInsertIntoNotification, [notification_text, email], true)
+
+        return res.json('deleted');
+    }
+})
+
 
 app.post('/order', async (req, res) => {
 
@@ -477,7 +690,53 @@ app.post('/order', async (req, res) => {
     return res.json({ 'alert': 'your order is placed', 'payment': `${payment}` })
 })
 
+app.get('/bkash-gateway', (req, res) => {
+    res.sendFile(path.join(staticPath, 'bkash.html'))
+})
 
+app.get('/checkout', (req, res) => {
+    res.sendFile(path.join(staticPath, 'checkout.html'))
+})
+
+
+app.post('/notification', async (req, res) => {
+    let { email } = req.body;
+    let sqlToGetNotification = `SELECT NOTIFICATION_TEXT FROM NOTIFICATION WHERE EMAIL=:1 ORDER BY "DATE" DESC`
+    let result = await queryDB(sqlToGetNotification, [email], false);
+    let notifications = []
+    for (let i = 0; i < result.rows.length; i++) {
+        notifications.push(result.rows[i][0])
+    }
+    return res.json(notifications);
+})
+
+app.post('/history', async (req, res) => {
+    let { email } = req.body;
+    let sqlToGetOrder = `SELECT ORDER_ID, TOTAL_COST, ADDRESS, DELIVERY_STATUS FROM ORDERS WHERE EMAIL=:1 ORDER BY "DATE" DESC`
+    let result = await queryDB(sqlToGetOrder, [email], false)
+
+    let orderHistory = [];
+    for (let i = 0; i < result.rows.length; i++) {
+        let orderId = result.rows[i][0]
+        let totalCost = result.rows[i][1]
+        let address = result.rows[i][2]
+        let deliveryStatus = result.rows[i][3]
+
+        let order = `<b>Order No:</b> ${orderId}<br><b>Total Cost:</b> $${totalCost}<br><b>Products: </b><br>`
+
+        let sqlToGetOrderProduct = `SELECT O.PRODUCT_ID, P.PRODUCT_NAME, O.ITEM_COUNT
+        FROM ORDER_PRODUCT O JOIN PRODUCTS P on P.PRODUCT_ID = O.PRODUCT_ID
+        WHERE O.ORDER_ID=:1`
+        let resultForProducts = await queryDB(sqlToGetOrderProduct, [orderId], false)
+        for (let j = 0; j < resultForProducts.rows.length; j++) {
+            order += `<b>Product Name:</b> ${resultForProducts.rows[j][1]} <b>Quantity:</b> ${resultForProducts.rows[j][2]}<br>`
+        }
+        order += `<b>Address:</b> ${address}<br><b>Delivery status:</b> ${deliveryStatus}`
+        orderHistory.push(order)
+    }
+
+    return res.json(orderHistory);
+})
 
 
 //server listen
