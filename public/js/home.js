@@ -1,32 +1,79 @@
-// Fetch users when the page loads
-const fetchAndDisplayUsers = async () => {
-    try {
-        const response = await fetch('/users');
-        const users = await response.json();
+const setupSlidingEffect = () => {
+    const productContainer = [...document.querySelectorAll('.product-container')]
+    const nxtBtn = [...document.querySelectorAll('.nxt-btn')]
+    const preBtn = [...document.querySelectorAll('.pre-btn')]
 
-        // Display the list of users on the page
-        const userListContainer = document.querySelector('#user-list');
-        if (users.length === 0) {
-            userListContainer.innerHTML = 'No users available.';
-        } else {
-            users.forEach(user => {
-                const userItem = document.createElement('div');
-                userItem.innerHTML = `
-                    <p>Name: ${user[0]}</p>
-                    <p>Email: ${user[1]}</p>
-                    <p>Password: ${user[2]}</p>
-                    <p>Phone Number: ${user[3]}</p>
-                    <p>Is Seller: ${user[4]}</p>
-                    <hr>
-                `;
-                userListContainer.appendChild(userItem);
-            });
+    productContainer.forEach((item, i) => {
+        let containerDimensions = item.getBoundingClientRect();
+        let containerWidth = containerDimensions.width;
+
+        nxtBtn[i].addEventListener('click', () => {
+            item.scrollLeft += containerWidth;
+        })
+        preBtn[i].addEventListener('click', () => {
+            item.scrollLeft -= containerWidth;
+        })
+    })
+}
+
+//fetch product cards
+const getProducts = (tags) => {
+    return fetch('/get-products', {
+        method: 'post',
+        headers: new Headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ tags: tags })
+    })
+        .then(res => res.json())
+        .then(data => {
+            console.log(data);
+            return data;
+        })
+}
+
+//create product slider
+const createProductSlider = (data, parent) => {
+    let sliderContainer = document.querySelector(`${parent}`)
+
+    sliderContainer.innerHTML += `
+    <section class="product">
+        <button class="pre-btn"><img src="../img/arrow.png" alt=""></button>
+        <button class="nxt-btn"><img src="../img/arrow.png" alt=""></button>
+        ${createProductCards(data)}
+    </section>
+    `
+
+    setupSlidingEffect();
+}
+
+const createProductCards = (data, parent) => {
+    //here parent is for search product
+    let start = `<div class='product-container'>`;
+    let middle = '';
+    let end = '</div>';
+
+    for (let i = 0; i < data.length; i++) {
+        if (data[i].productId != decodeURI(location.pathname.split('/').pop())) {
+            middle += `
+        <div class="product-card">
+            <div class="product-image">
+                <span class="discount-tag">${data[i].discount}% off</span>
+                <img src="${data[i].images[0]}" class="product-thumb"
+                    alt="">
+            </div>
+            <div class="product-info" onclick="location.href='/products/${data[i].productId}'">
+                <h2 class="product-brand">${data[i].name}</h2>
+                <p class="product-short-des">${data[i].shortDes}</p>
+                <span class="price">$${data[i].sellPrice} <span class="actual-price">$${data[i].actualPrice}</span> </span>
+            </div>
+        </div>
+        `
         }
-    } catch (error) {
-        console.error('Error fetching users:', error.message);
     }
-};
 
-
-
-fetchAndDisplayUsers();
+    if (parent) {
+        let cardContainer = document.querySelector(parent)
+        cardContainer.innerHTML = start + middle + end;
+    } else {
+        return start + middle + end;
+    }
+}

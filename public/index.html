@@ -6,7 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Telecart</title>
-    
+    <!-- CSS only -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
@@ -23,24 +23,77 @@
     <header class="hero-section">
         <div class="content">
             <h1 style="color: white; font-size: 100px; text-align: center; padding-top: 250px; opacity: 100%;">Telecart</h1>
-            <p style="color: white; font-size: 30px; text-align: center;">Shop beyond boundaries</p>
+            <p style="color: white; font-size: 30px; text-align: center;">Shop beyond borders</p>
         </div>
     </header>
 
+    
+    <br><br><br>
+    <h1 style="margin-left: 190px;" class="py-5">Our Products</h1>
+    <!-- cards container -->
+    <section id="all"></section>
 
-    <div id="user-list"></div>
+    <br><br><br>
+
+
+    <br><br><br>
+    <h1 style="margin-left: 190px;" class="py-5">Laptop</h1>
+    <!-- cards container -->
+    <section id="laptop"></section>
+
+    <br><br><br><br><br>
+
+
+    <h1 style="margin-left: 190px;" class="py-5">Accessories</h1>
+    <!-- cards container -->
+    <section id="accessories"></section>
+
+    <br><br><br><br><br>
+
+    <h1 style="margin-left: 190px;" class="py-5">Smartphones</h1>
+    <!-- cards container -->
+    <section id="phone"></section>
+
+    <br><br><br><br><br>
+
+    <h1 style="margin-left: 190px;" class="py-5">Men's fashion</h1>
+    <!-- cards container -->
+    <section id="men"></section>
+
+    <br><br><br><br><br>
+
+    <!-- Static notification, offer, cart -->
+    <div class="modal modal-dialog-scrollable" tabindex="-1" id="modal-notification">
+	</div>
+
+
+	<div class="modal modal-dialog-scrollable" tabindex="-1" id="modal-history">
+		
+	</div>
+
+
+    <!-- Static notification, offer, cart -->
 
     <footer class="bg-dark py-5">
         
     </footer>
 
-    <!-- Bootstarp bundles and js files-->
+
+    <!-- JavaScript Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
         crossorigin="anonymous"></script>
     <script src="js/nav.js"></script>
     <script src="js/home.js"></script>
     <script src="js/footer.js"></script>
+	<script src="js/notification.js"></script>
+	<script src="js/orderHistory.js"></script>
+    <script>
+        getProducts('accessories').then(data => createProductSlider(data, '#accessories'))
+        getProducts('smartphone').then(data => createProductSlider(data, '#phone'))
+        getProducts('laptop').then(data => createProductSlider(data, '#laptop'))
+        getProducts('men').then(data => createProductSlider(data, '#men'))
+        getProducts('men, women, phone, accessories, kid, book, daily need, medicine, laptop').then(data => createProductSlider(data, '#all'))
     </script>
 </body>
 
