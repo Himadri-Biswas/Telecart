@@ -100,17 +100,6 @@ app.post('/login', async (req, res) => {
     }
 })
 
-app.get('/users', async (req, res) => {
-    try {
-        const sql = `SELECT * FROM USERS`;
-        const result = await queryDB(sql, [], false);
-        console.log(result.rows);
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching users:', error.message);
-        res.status(500).json({ error: 'Internal Server Error' })
-    }
-})
 
 //seller route
 app.get('/seller', (req, res) => {
