@@ -579,6 +579,22 @@ app.post('/getCartOrWishlistProducts', async (req, res) => {
     }
 })
 
+app.post('/checkProductStock', async (req, res) => {
+    let { productId, item } = req.body;
+    let sql = `SELECT STOCK FROM PRODUCTS WHERE PRODUCT_ID=:1`
+    let result = await queryDB(sql, [productId], false);
+    if (result.rows[0][0] == 0) {
+        return res.json({ 'warning': 'Sorry! This product is out of stock!' })
+    } else if (result.rows[0][0] < item) {
+        return res.json({ 'warning': `Sorry! Only ${result.rows[0][0]} item/s left of this product!` })
+    } else {
+        //reduce stock
+        let sqlToReduceStock = `UPDATE PRODUCTS SET STOCK=:1 WHERE PRODUCT_ID=:2`
+        await queryDB(sqlToReduceStock, [result.rows[0][0] - item, productId], true);
+        return res.json('ok')
+    }
+})
+
 app.put('/updateCartOrWishlist', async (req, res) => {
     let { type, email, productId, item } = req.body;
     console.log(req.body);
@@ -595,6 +611,11 @@ app.put('/updateCartOrWishlist', async (req, res) => {
 
 app.delete('/deleteFromCartOrWishlist', async (req, res) => {
     let { type, email, productId } = req.body;
+    let date = new Date();
+    let pad = (n) => (n < 10) ? '0' + n : n;
+    let actualDate = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    let dateFormat = 'yyyy/mm/dd hh24:mi:ss';
+    
     if (type === 'cart') {
         let sql = `DELETE FROM CART WHERE EMAIL=:1 AND PRODUCT_ID=:2`
         await queryDB(sql, [email, productId], true);
@@ -603,8 +624,8 @@ app.delete('/deleteFromCartOrWishlist', async (req, res) => {
         let sqlToGetProductName = `SELECT product_name FROM products WHERE product_id=:1`
         let resultForProductName = await queryDB(sqlToGetProductName, [productId], false);
         let notification_text = `${resultForProductName.rows[0][0]} has been removed from your cart!`
-        let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2)`
-        await queryDB(sqlToInsertIntoNotification, [notification_text, email], true)
+        let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2, TO_DATE(:3, :4))`
+        await queryDB(sqlToInsertIntoNotification, [notification_text, email, actualDate, dateFormat], true);
 
         return res.json('deleted');
     } else {
@@ -615,8 +636,8 @@ app.delete('/deleteFromCartOrWishlist', async (req, res) => {
         let sqlToGetProductName = `SELECT product_name FROM products WHERE product_id=:1`
         let resultForProductName = await queryDB(sqlToGetProductName, [productId], false);
         let notification_text = `${resultForProductName.rows[0][0]} has been removed from your wishlist!`
-        let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2)`
-        await queryDB(sqlToInsertIntoNotification, [notification_text, email], true)
+        let sqlToInsertIntoNotification = `INSERT INTO NOTIFICATION VALUES (:1, :2, TO_DATE(:3, :4))`
+        await queryDB(sqlToInsertIntoNotification, [notification_text, email, actualDate, dateFormat], true);
 
         return res.json('deleted');
     }

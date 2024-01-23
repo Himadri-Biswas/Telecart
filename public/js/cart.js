@@ -120,11 +120,13 @@ const setupEvents = (name) => {
     let productIdElements = document.querySelectorAll(`.${name} .product-id`)
     let user = JSON.parse(sessionStorage.getItem("user"))
 
-
+    //console.log(counts.length);
     counts.forEach((item, i) => {
+        //console.log(item.innerHTML);
         let cost = Number(price[i].getAttribute('data-price'))
 
         counterMinus[i].addEventListener('click', () => {
+            //console.log('minus clicked');
             if (Number(item.innerHTML) > 1) {
                 item.innerHTML--;
 
@@ -153,13 +155,14 @@ const setupEvents = (name) => {
 
         counterPlus[i].addEventListener('click', () => {
 
+            //console.log('clicked');
             //checking stock
             fetch('/checkProductStock', {
                 method: 'post',
                 headers: new Headers({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     productId: productIdElements[i].innerHTML,
-                    item: Number(item.innerHTML) + 1
+                    item: Number(item.innerHTML) + 1//+1 because we want to check if we can add one more item
                 })
             }).then(res => res.json())
                 .then(data => {
