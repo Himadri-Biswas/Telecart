@@ -186,9 +186,15 @@ const setFormsData = data => {
     stock.value = data.stock;
     //sellingPrice.value = data.sellPrice;
     tags.value = data.tags;
-    startDate.value = data.startDate;
-    discountStayDays.value = data.discountStayDays;
-    tac.checked = data.tac;
+    startDate.value = new Date(data.startDate).toISOString().split('T')[0];
+    // Assuming startDate and endDate are in the format 'MM/DD/YYYY'
+    let start = new Date(data.startDate);
+    let end = new Date(data.endDate);
+    let dateDifference = (end - start) / (1000 * 60 * 60 * 24); // Calculate difference in days
+    discountStayDays.value = dateDifference;
+
+    tac.checked = true;
+    console.log(data.startDate+ ' '+ data.endDate);
 
     //setup images
     data.images.forEach((url, index) => {
