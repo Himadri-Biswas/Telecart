@@ -53,17 +53,26 @@ const createProductCards = (data, parent) => {
 
     for (let i = 0; i < data.length; i++) {
         if (data[i].productId != decodeURI(location.pathname.split('/').pop())) {
+            let actualPriceHTML = '';
+            if (data[i].sellPrice !== data[i].actualPrice) {
+                actualPriceHTML = `<span class="actual-price">$${data[i].actualPrice}</span>`;
+            }
+            let discountHTML = '';
+            if(data[i].discount > 0){
+                discountHTML = `<span class="discount-tag">${data[i].discount}% off</span>`;
+            }
+
             middle += `
         <div class="product-card">
             <div class="product-image">
-                <span class="discount-tag">${data[i].discount}% off</span>
+                <span class="discount-tag">${discountHTML}</span>
                 <img src="${data[i].images[0]}" class="product-thumb"
                     alt="">
             </div>
             <div class="product-info" onclick="location.href='/products/${data[i].productId}'">
                 <h2 class="product-brand">${data[i].name}</h2>
                 <p class="product-short-des">${data[i].shortDes}</p>
-                <span class="price">$${data[i].sellPrice} <span class="actual-price">$${data[i].actualPrice}</span> </span>
+                <span class="price">$${data[i].sellPrice} ${actualPriceHTML}</span>
             </div>
         </div>
         `

@@ -90,7 +90,7 @@ const setData = (data) => {
 
     name.innerHTML = data.name;
     shortDes.innerHTML = data.shortDes;
-    des.innerHTML = data.des
+    des.innerHTML = data.des;
 
     //pricing
     const sellPrice = document.querySelector('.product-price')
@@ -98,8 +98,13 @@ const setData = (data) => {
     const discount = document.querySelector('.product-discount')
 
     sellPrice.innerHTML = `$${data.sellPrice}`
-    actualPrice.innerHTML = `$${data.actualPrice}`
-    discount.innerHTML = `( $${data.discount}% off )`
+    if (data.sellPrice === data.actualPrice) {
+        actualPrice.style.display = 'none'; 
+        discount.style.display = 'none'; 
+    } else {
+        actualPrice.innerHTML = `$${data.actualPrice}`;
+        discount.innerHTML = `( $${data.discount}% off )`;
+    }
 
     //wishlist and cart
     const wishlistBtn = document.querySelector('.wishlist-btn')

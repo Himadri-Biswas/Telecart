@@ -342,14 +342,21 @@ app.get('/search/name/:productName', async (req, res) => {
             name: sqlResult.rows[i][1],
             des: sqlResult.rows[i][2],
             actualPrice: sqlResult.rows[i][7],
-            discount: sqlResult.rows[i][13],
-            sellPrice: calculateSellPrice(sqlResult.rows[i][7], sqlResult.rows[i][13]),
+            discount: 0,
+            sellPrice: calculateSellPrice(sqlResult.rows[i][7], 0),
             stock: sqlResult.rows[i][3],
             tags: sqlResult.rows[i][4],
             shortDes: sqlResult.rows[i][6],
             startDate: sqlResult.rows[i][11],
             endDate: sqlResult.rows[i][12],
         };
+        let currentDate = new Date();
+        let startDate = new Date(sqlResult.rows[i][11]);
+        let endDate = new Date(sqlResult.rows[i][12]);
+        if(startDate <= currentDate && currentDate <= endDate){
+            product.discount = sqlResult.rows[i][13];
+            product.sellPrice = calculateSellPrice(sqlResult.rows[i][7], sqlResult.rows[i][13]);
+        }
 
         let sqlToGetImage = `SELECT * FROM IMAGES WHERE PRODUCT_ID = :1`;
         let resultForImages = await queryDB(sqlToGetImage, [product.productId], false);

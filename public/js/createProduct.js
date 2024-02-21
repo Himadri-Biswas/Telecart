@@ -6,6 +6,11 @@ const createProduct = (data) => {
         location.href = `/add-product/${productId}`
     }
 
+    let actualPriceHTML = ''; 
+
+    if (data.sellPrice !== data.actualPrice) {
+        actualPriceHTML = `<span class="actual-price">$${data.actualPrice}</span>`;
+    }
     let productContainer = document.querySelector('.product-container')
     productContainer.innerHTML += `
         <div class="product-card">
@@ -19,7 +24,7 @@ const createProduct = (data) => {
             <div class="product-info">
                 <h2 class="product-brand">${data.name}</h2>
                 <p class="product-short-des">${data.shortDes}</p>
-                <span class="price">$${data.sellPrice} <span class="actual-price">$${data.actualPrice}</span> </span>
+                <span class="price">$${data.sellPrice} ${actualPriceHTML}</span>
             </div>
         </div>
     `
