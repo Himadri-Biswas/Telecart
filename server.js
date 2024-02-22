@@ -235,9 +235,13 @@ app.post('/get-products', async (req, res) => {
         result = await queryDB(sqlToGetProductById, [productId], false);
     } else if (email) {
         let sqlToGetProducts = `
-            SELECT * FROM PRODUCTS p
-            JOIN DISCOUNT d ON p.PRODUCT_ID = d.PRODUCT_ID
-            WHERE p.EMAIL = :1`;
+        SELECT * FROM PRODUCTS p
+        JOIN DISCOUNT d ON p.PRODUCT_ID = d.PRODUCT_ID
+        WHERE p.PRODUCT_ID IN (
+            SELECT PRODUCT_ID FROM PRODUCTS
+            WHERE EMAIL = :1
+        )
+        `;
         result = await queryDB(sqlToGetProducts, [email], false);
     } else if (tags) {
         let tagArr = tags.toString().split(',');
@@ -246,9 +250,13 @@ app.post('/get-products', async (req, res) => {
             tagArr[i] = str;
         }
         let sqlToGetProductByTags = `
-            SELECT * FROM PRODUCTS p
-            JOIN DISCOUNT d ON p.PRODUCT_ID = d.PRODUCT_ID
-            WHERE p.TAGS LIKE :1`;
+        SELECT * FROM PRODUCTS p
+        JOIN DISCOUNT d ON p.PRODUCT_ID = d.PRODUCT_ID
+        WHERE p.PRODUCT_ID IN (
+            SELECT PRODUCT_ID FROM PRODUCTS
+            WHERE TAGS LIKE :1
+        )
+        `;
         for (let i = 2; i <= tagArr.length; i++) {
             sqlToGetProductByTags += ` OR p.TAGS LIKE :${i}`;
         }
@@ -328,9 +336,13 @@ app.get('/search/name/:productName', async (req, res) => {
     let str = `%${productName.trim().toLowerCase()}%`;
 
     let sqlToGetProductByName = `SELECT * FROM PRODUCTS p
-                                JOIN DISCOUNT d ON p.PRODUCT_ID = d.PRODUCT_ID
-                                WHERE LOWER(p.PRODUCT_NAME) LIKE :1
-                                OR LOWER(p.TAGS) LIKE :1`;
+    JOIN DISCOUNT d ON p.PRODUCT_ID = d.PRODUCT_ID
+    WHERE p.PRODUCT_ID IN (
+        SELECT PRODUCT_ID FROM PRODUCTS
+        WHERE LOWER(PRODUCT_NAME) LIKE :1
+        OR LOWER(TAGS) LIKE :1
+    )
+    `;
 
     let sqlResult = await queryDB(sqlToGetProductByName, [str], false);
 
