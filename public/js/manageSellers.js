@@ -18,7 +18,7 @@ const createSeller = (sellers) => {
     for (let i = 0; i < sellers.length; i++) {
         sellersElement.innerHTML += `
         <div class="seller">
-        <div>Bsuiness name: ${sellers[i].name}</div>
+        <div>Business name: ${sellers[i].name}</div>
         <div style="margin-left: 50px;">Email: ${sellers[i].email}</div>
         <div style="margin-left: 50px;">Address: ${sellers[i].address}</div>
         <div style="margin-left: 50px;">Phone: ${sellers[i].phone}</div>
