@@ -779,7 +779,489 @@ app.post('/history', async (req, res) => {
 })
 
 
+app.post('/getReviews', async (req, res) => {
+    let { productId } = req.body;
+    let reviews = [];
+    let sqlToGetReview = `SELECT U.NAME, R.REVIEW_TEXT, R.RATING_STAR
+    FROM REVIEW R JOIN USERS U on R.EMAIL = U.EMAIL
+    WHERE R.PRODUCT_ID=:1 ORDER BY "DATE" DESC`
+    let resultForReview = await queryDB(sqlToGetReview, [productId], false);
+    for (let i = 0; i < resultForReview.rows.length; i++) {
+        let review = {
+            userName: resultForReview.rows[i][0],
+            reviewText: resultForReview.rows[i][1],
+            star: resultForReview.rows[i][2]
+        }
+        reviews.push(review)
+    }
+    return res.json(reviews);
+})
+
+app.post('/checkIfTheUserCanGiveReview', async (req, res) => {
+    let { productId, email, star, reviewText } = req.body;
+    let sqlToCheck = `SELECT OP.ORDER_ID
+    from ORDER_PRODUCT OP JOIN ORDERS O on O.ORDER_ID = OP.ORDER_ID
+    WHERE OP.PRODUCT_ID=:1 AND O.EMAIL=:2 AND O.DELIVERY_STATUS=:3`
+    let resultToCheck = await queryDB(sqlToCheck, [productId, email, 'delivered'], false);
+    if (resultToCheck.rows.length < 1) {
+        return res.json({ 'alert': 'You have to buy the product to give a review' })
+    } else {
+        let date = new Date();
+        /*
+        let actualDate = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`
+        let dateFormat = 'yyyy/mm/dd hh24:mi:ss'
+        */
+        let pad = (n) => (n < 10) ? '0' + n : n;
+
+        let actualDate = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        let dateFormat = 'yyyy/mm/dd hh24:mi:ss';
+        let sqlToInsertIntoReview = `INSERT INTO REVIEW VALUES (:1, :2, :3, :4, TO_DATE(:5, :6))`
+        await queryDB(sqlToInsertIntoReview, [email, productId, reviewText, star, actualDate, dateFormat], true);
+        return res.json('success');
+    }
+})
+
+app.post('/checkProductStock', async (req, res) => {
+    let { productId, item } = req.body;
+    let sqlToCheckStock = `SELECT STOCK FROM PRODUCTS WHERE PRODUCT_ID=:1`
+    let result = await queryDB(sqlToCheckStock, [productId], false);
+    if (result.rows[0][0] == 0) {
+        return res.json({ 'warning': `Sorry! This product is out of stock!` })
+    } else if (result.rows[0][0] < item) {
+        return res.json({ 'warning': `Sorry! Only ${result.rows[0][0]} items left of this product!` })
+    } else {
+        return res.json('success');
+    }
+})
+
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(staticPath, 'admin.html'))
+})
+
+app.get('/admin-login', (req, res) => {
+    res.sendFile(path.join(staticPath, 'adminLogin.html'))
+})
+
+app.post('/admin-login', async (req, res) => {
+    let { email, password } = req.body
+    if (!email.length || !password.length) {
+        return res.json({ 'alert': 'Fill all the inputs' })
+    }
+
+    let sql = `SELECT COUNT(*) FROM ADMIN WHERE EMAIL=:1`
+    let result = await queryDB(sql, [email], false)
+    if (result.rows[0][0] == 0) {
+        return res.json({ 'alert': `email doesn't exist` });
+    } else {
+        sql = `SELECT * FROM ADMIN WHERE EMAIL=:1`
+        result = await queryDB(sql, [email], false)
+        console.log(result.rows[0][2]);
+        if (result.rows[0][2] === password) {
+            return res.json({
+                name: result.rows[0][0],
+                email: result.rows[0][1]
+            })
+        } else {
+            return res.json({ 'alert': 'password is incorrect' })
+        }
+    }
+})
+
+app.get('/manage-customers', (req, res) => {
+    res.sendFile(path.join(staticPath, 'manageCustomers.html'))
+})
+
+app.get('/manage-only-customers', (req, res) => {
+    res.sendFile(path.join(staticPath, 'manageOnlyCustomers.html'))
+})
+
+app.get('/manage-orders', (req, res) => {
+    res.sendFile(path.join(staticPath, 'manageOrders.html'))
+})
+
+app.get('/manage-products', (req, res) => {
+    res.sendFile(path.join(staticPath, 'manageProducts.html'))
+})
+
+app.get('/manage-sellers', (req, res) => {
+    res.sendFile(path.join(staticPath, 'manageSellers.html'))
+})
+
+app.get('/manage-delivery', (req, res) => {
+    res.sendFile(path.join(staticPath, 'manageDelivery.html'))
+})
+
+app.get('/add-new-admin', (req, res) => {
+    res.sendFile(path.join(staticPath, 'addNewAdmin.html'))
+})
+
+app.post('/get-all-products', async (req, res) => {
+    let result = await queryDB(`select * from PRODUCTS;`, [], false);
+
+})
+
+app.post('/new-order', async (req, res) => {
+    let result = await queryDB(`SELECT count(*) from orders where delivery_status='not assigned'`, [], false)
+    return res.json(result.rows[0][0]);
+})
+
+app.post('/customer-num', async (req, res) => {
+    let result = await queryDB(`SELECT count(*) from users`, [], false)
+    return res.json(result.rows[0][0]);
+})
+
+app.post('/product-num', async (req, res) => {
+    let result = await queryDB(`SELECT count(*) from products`, [], false)
+    return res.json(result.rows[0][0]);
+})
+
+app.post('/seller-num', async (req, res) => {
+    let result = await queryDB(`SELECT count(*) from sellers`, [], false)
+    return res.json(result.rows[0][0]);
+})
+
+app.post('/delivery-num', async (req, res) => {
+    let result = await queryDB(`SELECT count(*) from delivery_men`, [], false)
+    return res.json(result.rows[0][0]);
+})
+
+app.post('/only-customer-num', async (req, res) => {
+    let result = await queryDB(`SELECT COUNT(*) FROM USERS WHERE EMAIL IN (SELECT EMAIL FROM USERS MINUS SELECT EMAIL FROM SELLERS)`, [], false)
+    return res.json(result.rows[0][0]);
+})
+
+
+app.post('/getCustomers', async (req, res) => {
+    let result = await queryDB(`SELECT * FROM USERS`, [], false)
+    let customers = []
+    for (let i = 0; i < result.rows.length; i++) {
+        let customer = {
+            name: result.rows[i][0],
+            email: result.rows[i][1],
+            phone: result.rows[i][3],
+            seller: result.rows[i][4]
+        }
+        let sqlForOrder = `SELECT * FROM ORDERS WHERE EMAIL=:1`
+        let resultForOrder = await queryDB(sqlForOrder, [customer.email], false)
+        customer.totalOrder = resultForOrder.rows.length
+        customer.totalSpent = 0;
+        for (let j = 0; j < resultForOrder.rows.length; j++) {
+            customer.totalSpent += resultForOrder.rows[j][3]
+        }
+        customers.push(customer)
+    }
+    return res.json(customers)
+})
+
+app.post('/getOnlyCustomers', async (req, res) => {
+    let result = await queryDB(`SELECT * FROM USERS WHERE EMAIL IN (SELECT EMAIL FROM USERS MINUS SELECT EMAIL FROM SELLERS)`, [], false)
+    //console.log(result.rows);
+    let customers = []
+    for (let i = 0; i < result.rows.length; i++) {
+        let customer = {
+            name: result.rows[i][0],
+            email: result.rows[i][1],
+            phone: result.rows[i][3],
+            seller: result.rows[i][4]
+        }
+        let sqlForOrder = `SELECT * FROM ORDERS WHERE EMAIL=:1`
+        let resultForOrder = await queryDB(sqlForOrder, [customer.email], false)
+        customer.totalOrder = resultForOrder.rows.length
+        customer.totalSpent = 0;
+        for (let j = 0; j < resultForOrder.rows.length; j++) {
+            customer.totalSpent += resultForOrder.rows[j][3]
+        }
+        customers.push(customer)
+    }
+    return res.json(customers)
+})
+
+
+app.post('/getSellers', async (req, res) => {
+    let result = await queryDB(`SELECT * FROM SELLERS`, [], false)
+    let sellers = []
+    for (let i = 0; i < result.rows.length; i++) {
+        let seller = {
+            name: result.rows[i][0],
+            address: result.rows[i][2],
+            phone: result.rows[i][3],
+            email: result.rows[i][4]
+        }
+        let sqlForProducts = `SELECT * FROM products WHERE EMAIL=:1`
+        let resultForProducts = await queryDB(sqlForProducts, [seller.email], false)
+        seller.totalProducts = resultForProducts.rows.length
+        /*
+        seller.totalPrice = 0;
+        for (let j = 0; j < resultForProducts.rows.length; j++) {
+            seller.totalPrice += resultForProducts.rows[j][5];
+        }
+        */
+        sellers.push(seller)
+    }
+    return res.json(sellers)
+})
+
+/*
+app.post('/addAdmin', async (req, res) => {
+    let { name, address, email, phone, password } = req.body;
+    await queryDB(`INSERT INTO ADMIN VALUES (:1, :2, :3, :4, :5)`, [name, email, password, address, phone], true);
+    return res.json('success')
+})
+*/
+
+app.get('/bkash-gateway', (req, res) => {
+    res.sendFile(path.join(staticPath, 'bkash.html'))
+})
+
+app.post('/getDeliverySystem', async (req, res) => {
+    let result = await queryDB(`SELECT * FROM DELIVERY_MEN`, [], false);
+    let delivery_system = []
+    for (let i = 0; i < result.rows.length; i++) {
+        let delivery = {
+            name: result.rows[i][0],
+            email: result.rows[i][1],
+            phone: result.rows[i][3],
+            area: result.rows[i][4]
+        }
+        delivery_system.push(delivery);
+    }
+    return res.json(delivery_system);
+})
+
+app.post('/deleteDelivery', async (req, res) => {
+    let { email } = req.body;
+
+    // USED 1 trigger and 1 function for changing delivery status to 'not assigned' after deleting delivery
+    // and to delete all recoreds with that delivery email from delivery_order table
+
+
+    // let sqlToGetDeliveryOrder = `SELECT * FROM DELIVERY_ORDER WHERE DELIVERY_EMAIL=:1`
+    // let result = await queryDB(sqlToGetDeliveryOrder, [email], false)
+    // for (let i = 0; i < result.rows.length; i++) {
+    //     let orderId = result.rows[i][1];
+    //     let resultForOrder = await queryDB(`update orders set delivery_status='not assigned' where order_id=:1 and delivery_status='assigned'`, [orderId], true)
+    // }
+
+    //await queryDB(`delete from delivery_order where delivery_email=:1`, [email], true);
+    await queryDB(`delete from delivery_men where delivery_email=:1`, [email], true);
+    return res.json('success');
+})
+
+app.post('/get-orders', async (req, res) => {
+    let result = await queryDB(`SELECT * FROM ORDERS where delivery_status='not assigned' order by "DATE" DESC`, [], false);
+    let orders = []
+    for (let i = 0; i < result.rows.length; i++) {
+        let order = {
+            orderId: result.rows[i][0],
+            email: result.rows[i][1],
+            date: result.rows[i][2],
+            totalCost: result.rows[i][3],
+            address: result.rows[i][4],
+            street: result.rows[i][5],
+            city: result.rows[i][6],
+            state: result.rows[i][7],
+            pincode: result.rows[i][8],
+            landmark: result.rows[i][9],
+            deliveryStatus: result.rows[i][10],
+            payment: result.rows[i][11]
+        }
+        orders.push(order);
+    }
+    return res.json(orders);
+})
+
+app.post('/cancelOrder', async (req, res) => {
+    let { orderId, email } = req.body;
+    let date = new Date();
+    /*
+    let actualDate = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`
+    let dateFormat = 'yyyy/mm/dd hh24:mi:ss'
+    */
+    let pad = (n) => (n < 10) ? '0' + n : n;
+
+    let actualDate = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    let dateFormat = 'yyyy/mm/dd hh24:mi:ss';
+    await queryDB(`delete from delivery_order where order_id=:1`, [orderId], true);
+    await queryDB(`insert into notification values(:1, :2, to_date(:3, :4))`, [`Your order ${orderId} has been cancelled`, email, actualDate, dateFormat], true);
+
+    // USED 1 trigger and 1 function for stock management(increasing stock after order cancellation)
+
+    // let result = await queryDB(`SELECT * FROM ORDER_PRODUCT WHERE ORDER_ID=:1`, [orderId], false)
+    // for (let i = 0; i < result.rows.length; i++) {
+    //     let item = result.rows[i][2]
+    //     let product_id = result.rows[i][1]
+    //     let resultForStock = await queryDB(`select stock from products where product_id=:1`, [product_id], false)
+    //     let stock = resultForStock.rows[0][0];
+    //     await queryDB(`update products set stock=:1 where product_id=:2`, [stock + item, product_id], true);
+    // }
+
+    await queryDB(`delete from order_product where order_id=:1`, [orderId], true);
+    await queryDB(`delete from orders where order_id=:1`, [orderId], true);
+
+    return res.json('success');
+})
+
+app.post('/assignOrderToDelivery', async (req, res) => {
+    let { orderId, delivery } = req.body;
+    let resultForEmail = await queryDB(`select delivery_email from delivery_men where delivery_name=:1`, [delivery], false)
+    let email = resultForEmail.rows[0][0]
+    await queryDB(`insert into delivery_order values(:1, :2)`, [email, orderId], true);
+
+    //USED 1 procedure and 1 trigger to change delivery status to 'assigned' after assigning delivery
+    //await queryDB(`update orders set delivery_status='assigned' where order_id=:1`, [orderId], true);
+    return res.json('success');
+})
+
+app.get('/add-delivery', (req, res) => {
+    res.sendFile(path.join(staticPath, 'addDelivery.html'))
+})
+
+app.post('/add-delivery', async (req, res) => {
+    let { name, email, phone, password, area } = req.body;
+    await queryDB(`insert into delivery_men values(:1, :2, :3, :4, :5)`, [name, email, password, phone, area], true);
+    return res.json('success');
+})
+
+app.get('/delivery', (req, res) => {
+    res.sendFile(path.join(staticPath, 'delivery.html'))
+})
+app.get('/delivery-login', (req, res) => {
+    res.sendFile(path.join(staticPath, 'deliveryLogin.html'))
+})
+
+
+app.post('/delivery-login', async (req, res) => {
+    let { email, password } = req.body;
+    if (!email.length || !password.length) {
+        return res.json({ 'alert': 'Fill all the inputs' })
+    }
+
+    let sql = `SELECT COUNT(*) FROM delivery_men WHERE DELIVERY_EMAIL=:1`
+    let result = await queryDB(sql, [email], false)
+    if (result.rows[0][0] == 0) {
+        return res.json({ 'alert': `email doesn't exist` });
+    } else {
+        sql = `SELECT * FROM delivery_men WHERE DELIVERY_EMAIL=:1`
+        result = await queryDB(sql, [email], false)
+        if (result.rows[0][2] === password) {
+            return res.json({
+                name: result.rows[0][0],
+                email: result.rows[0][1]
+            })
+        } else {
+            return res.json({ 'alert': 'password is incorrect' })
+        }
+    }
+})
+
+app.post('/getOrderByDeliveryEmail', async (req, res) => {
+    let { email } = req.body;
+    //let result = await queryDB(`select * from DELIVERY_ORDER join ORDERS O on O.ORDER_ID = DELIVERY_ORDER.ORDER_ID where DELIVERY_ORDER.DELIVERY_EMAIL=:1 and O.DELIVERY_STATUS='assigned'`, [email], false)
+    
+    /*
+    let result = await queryDB(
+     `    SELECT * 
+        FROM DELIVERY_ORDER 
+    WHERE DELIVERY_ORDER.ORDER_ID IN (
+    SELECT ORDER_ID 
+    FROM ORDERS  
+    WHERE DELIVERY_STATUS = 'assigned'
+    )
+    AND 
+    DELIVERY_EMAIL = :1
+    ;    `
+    )
+    */
+
+    let sql= `SELECT * FROM ORDERS WHERE ORDER_ID IN (SELECT ORDER_ID FROM DELIVERY_ORDER WHERE DELIVERY_EMAIL=:1) AND DELIVERY_STATUS='assigned' ORDER BY "DATE" DESC`;
+    let result = await queryDB(sql, [email], false);
+    let orders = []
+    for (let i = 0; i < result.rows.length; i++) {
+        let order = {
+            /*
+            deliveryEmail: result.rows[i][0],
+            orderId: result.rows[i][1],
+            userEmail: result.rows[i][3],
+            totalCost: result.rows[i][5],
+            address: result.rows[i][6],
+            street: result.rows[i][7],
+            city: result.rows[i][8],
+            state: result.rows[i][9],
+            pincode: result.rows[i][10],
+            landmark: result.rows[i][11],
+            deliveryStatus: result.rows[i][12],
+            payment: result.rows[i][13]
+            */
+            orderId: result.rows[i][0],
+            userEmail: result.rows[i][1],
+            date: result.rows[i][2],
+            totalCost: result.rows[i][3],
+            address: result.rows[i][4],
+            street: result.rows[i][5],
+            city: result.rows[i][6],
+            state: result.rows[i][7],
+            pincode: result.rows[i][8],
+            landmark: result.rows[i][9],
+            deliveryStatus: result.rows[i][10],
+            payment: result.rows[i][11]
+        }
+        orders.push(order)
+    }
+    return res.json(orders);
+})
+
+
+app.post('/updateDeliveryStatus', async (req, res) => {
+    let { orderId, customerEmail } = req.body;
+
+    let date = new Date();
+
+    // let actualDate = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`
+    // let dateFormat = 'yyyy/mm/dd hh24:mi:ss'
+
+
+    let pad = (n) => (n < 10) ? '0' + n : n;
+
+    let actualDate = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    let dateFormat = 'yyyy/mm/dd hh24:mi:ss';
+
+    //console.log(orderId, customerEmail)
+    await queryDB(`update orders set delivery_status='delivered' where order_id=:1`, [orderId], true);
+    await queryDB(`insert into notification values (:1, :2, to_date(:3, :4))`, [`Your order ${orderId} has been delivered! Please give review on the puchased products. Thank you!`, customerEmail, actualDate, dateFormat], true);
+    return res.json('success')
+})
+
+//after trigger...ekhono implement kora hoi nai
+/*
+app.post('/updateDeliveryStatus', async (req, res) => {
+    let { orderId, customerEmail } = req.body;
+
+    try {
+        // Update the delivery status
+        await queryDB(`update orders set delivery_status='delivered' where order_id=:1`, [orderId], true);
+
+        // The trigger will automatically call the procedure to send the delivery notification,
+        // so we don't need to call it explicitly here
+
+        return res.json('success');
+    } catch (error) {
+        console.error('Error updating delivery status:', error);
+        return res.status(500).json({ 'error': 'An error occurred while updating delivery status' });
+    }
+});
+*/
+
+//404 route
+app.get('/404', (req, res) => {
+    res.sendFile(path.join(staticPath, '404.html'))
+})
+app.use((req, res) => {
+    res.redirect('/404')
+})
+
+
 //server listen
 app.listen(8080, () => {
     console.log('listening on port 8080');
 })
+
